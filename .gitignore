@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual environment
+.venv/
+venv/
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+
+# Build artifacts
+dist/
+build/
+
+# Ruff and other caches
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# IDE and operating system
+.DS_Store
+.idea/
+.vscode/
+
+# Local application data
+data/users.json
+data/portfolios.json
