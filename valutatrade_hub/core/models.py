@@ -238,6 +238,21 @@ class Wallet:
             "balance": self._balance,
         }
 
+    def to_dict(self) -> dict:
+        """Преобразует кошелёк в словарь для сохранения."""
+        return self.get_balance_info()
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Wallet":
+        """Восстанавливает кошелёк из сохранённых данных."""
+        if not isinstance(data, dict):
+            raise TypeError("Данные кошелька должны быть словарём")
+
+        return cls(
+            currency_code=data["currency_code"],
+            balance=data["balance"],
+        )
+
 
 class Portfolio:
     """Объединяет валютные кошельки одного пользователя."""
