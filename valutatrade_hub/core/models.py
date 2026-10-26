@@ -133,6 +133,30 @@ class User:
         self._salt = new_salt
         self._hashed_password = new_hash
 
+    def to_dict(self) -> dict:
+        """Преобразует пользователя в словарь для сохранения."""
+        return {
+            "user_id": self._user_id,
+            "username": self._username,
+            "hashed_password": self._hashed_password,
+            "salt": self._salt,
+            "registration_date": self._registration_date.isoformat(),
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "User":
+        """Восстанавливает пользователя из сохранённого словаря."""
+        if not isinstance(data, dict):
+            raise TypeError("Данные пользователя должны быть словарём")
+
+        return cls(
+            user_id=data["user_id"],
+            username=data["username"],
+            hashed_password=data["hashed_password"],
+            salt=data["salt"],
+            registration_date=datetime.fromisoformat(data["registration_date"]),
+        )
+
 
 class Wallet:
     """Представляет кошелёк с балансом одной валюты."""
