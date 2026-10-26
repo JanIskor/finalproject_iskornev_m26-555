@@ -358,3 +358,29 @@ class Portfolio:
             raise ValueError("Результат конвертации превышает допустимый диапазон")
 
         return result
+
+    def to_dict(self) -> dict:
+        """Преобразует портфель в словарь для сохранения."""
+        return {
+            "user_id": self._user_id,
+            "wallets": {code: wallet.balance for code, wallet in self._wallets.items()},
+        }
+
+    @classmethod
+    def from_dict(cls, data: dict) -> "Portfolio":
+        """Восстанавливает портфель и его валютные кошельки."""
+        if not isinstance(data, dict):
+            raise TypeError("Данные портфеля должны быть словарём")
+
+        wallets_data = data["wallets"]
+
+        if not isinstance(wallets_data, dict):
+            raise TypeError("Кошельки должны быть представлены словарём")
+
+        portfolio = cls(user_id=data["user_id"])
+
+        for code, balance in wallets_data.items():
+            wallet = portfolio.add_currency(code)
+            wallet.balance = balance
+
+        return portfolio
