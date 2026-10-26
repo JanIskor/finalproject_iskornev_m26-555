@@ -29,6 +29,8 @@ class SettingsLoader:
 
         self._base_currency = "USD"
         self._rates_ttl_seconds = 300
+        self._log_level = "DEBUG"
+        self._log_format = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 
         self._initialized = True
 
@@ -76,3 +78,34 @@ class SettingsLoader:
     def rates_ttl_seconds(self) -> int:
         """Возвращает срок актуальности курсов в секундах."""
         return self._rates_ttl_seconds
+
+    @property
+    def log_level(self) -> str:
+        """Возвращает уровень файлового логирования."""
+        return self._log_level
+
+    @property
+    def log_format(self) -> str:
+        """Возвращает формат сообщений логирования."""
+        return self._log_format
+
+    def get(self, key: str, default=None):
+        """Возвращает настройку по имени или значение по умолчанию."""
+        if not isinstance(key, str):
+            raise TypeError("Название настройки должно быть строкой")
+
+        available_settings = {
+            "project_root": self.project_root,
+            "data_dir": self.data_dir,
+            "logs_dir": self.logs_dir,
+            "users_file": self.users_file,
+            "portfolios_file": self.portfolios_file,
+            "rates_file": self.rates_file,
+            "exchange_rates_file": self.exchange_rates_file,
+            "base_currency": self.base_currency,
+            "rates_ttl_seconds": self.rates_ttl_seconds,
+            "log_level": self.log_level,
+            "log_format": self.log_format,
+        }
+
+        return available_settings.get(key, default)
