@@ -255,23 +255,38 @@ class Wallet:
 
 
 class Portfolio:
-    """Объединяет валютные кошельки одного пользователя."""
+    """Портфель валютных кошельков одного пользователя."""
 
-    def __init__(self, user_id: int) -> None:
-        """Создаёт пустой портфель для указанного пользователя."""
+    def __init__(self, user_id: int, user: User | None = None):
+        """Создаёт портфель и при необходимости связывает его с пользователем."""
         if isinstance(user_id, bool) or not isinstance(user_id, int):
             raise TypeError("Идентификатор пользователя должен быть целым числом")
 
         if user_id <= 0:
             raise ValueError("Идентификатор пользователя должен быть положительным")
 
+        if user is not None:
+            if not isinstance(user, User):
+                raise TypeError("Пользователь должен быть объектом User")
+
+            if user.user_id != user_id:
+                raise ValueError(
+                    "Идентификатор пользователя не совпадает с владельцем портфеля"
+                )
+
         self._user_id = user_id
+        self._user = user
         self._wallets: dict[str, Wallet] = {}
 
     @property
     def user_id(self) -> int:
         """Возвращает идентификатор владельца портфеля."""
         return self._user_id
+
+    @property
+    def user(self) -> User | None:
+        """Возвращает пользователя, связанного с портфелем."""
+        return self._user
 
     @property
     def wallets(self) -> dict[str, Wallet]:
