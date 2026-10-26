@@ -33,7 +33,7 @@ class DatabaseManager:
         self._settings.data_dir.mkdir(parents=True, exist_ok=True)
 
         self._initialize_file(self._settings.users_file, [])
-        self._initialize_file(self._settings.portfolios_file, {})
+        self._initialize_file(self._settings.portfolios_file, [])
 
         self._initialized = True
 
@@ -96,13 +96,13 @@ class DatabaseManager:
 
         self._write_json(self._settings.users_file, users)
 
-    def load_portfolios(self) -> dict:
-        """Загружает портфели пользователей."""
-        return self._read_json(self._settings.portfolios_file, dict)
+    def load_portfolios(self) -> list[dict]:
+        """Загружает список портфелей пользователей."""
+        return self._read_json(self._settings.portfolios_file, list)
 
-    def save_portfolios(self, portfolios: dict) -> None:
-        """Сохраняет портфели пользователей."""
-        if not isinstance(portfolios, dict):
-            raise TypeError("Портфели должны быть представлены словарём")
+    def save_portfolios(self, portfolios: list[dict]) -> None:
+        """Сохраняет список портфелей пользователей."""
+        if not isinstance(portfolios, list):
+            raise TypeError("Портфели должны быть представлены списком")
 
         self._write_json(self._settings.portfolios_file, portfolios)
