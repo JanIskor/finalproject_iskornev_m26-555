@@ -378,12 +378,19 @@ class Portfolio:
         """Преобразует портфель в словарь для сохранения."""
         return {
             "user_id": self._user_id,
-            "wallets": {code: wallet.balance for code, wallet in self._wallets.items()},
+            "wallets": {
+                code: {"balance": wallet.balance}
+                for code, wallet in self._wallets.items()
+            },
         }
 
     @classmethod
-    def from_dict(cls, data: dict) -> "Portfolio":
-        """Восстанавливает портфель и его валютные кошельки."""
+    def from_dict(
+        cls,
+        data: dict,
+        user: User | None = None,
+    ) -> "Portfolio":
+        """Восстанавливает портфель и связывает его с пользователем."""
         if not isinstance(data, dict):
             raise TypeError("Данные портфеля должны быть словарём")
 
@@ -392,10 +399,22 @@ class Portfolio:
         if not isinstance(wallets_data, dict):
             raise TypeError("Кошельки должны быть представлены словарём")
 
-        portfolio = cls(user_id=data["user_id"])
+        portfolio = cls(user_id=data["user_id"], user=user)
 
-        for code, balance in wallets_data.items():
-            wallet = portfolio.add_currency(code)
-            wallet.balance = balance
+        for code, wallet_data in wallets_data.items():
+            if not isinstance(wallet_data, dict):
+                raise TypeError("Данные кошелька должны быть словарём")
+
+            wallet = Wallet.from_dict(
+                {
+                    "currency_code": code,
+                    "balance": wallet_data["balance"],
+                }
+            )
+
+            if wallet.currency_code in portfolio._wallets:
+                raise ValueError(f"Повторяющийся код валюты {wallet.currency_code}")
+
+            portfolio._wallets[wallet.currency_code] = wallet
 
         return portfolio
