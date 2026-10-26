@@ -260,3 +260,62 @@ class Portfolio:
             raise ValueError(f"Валюта {code} отсутствует в портфеле")
 
         return self._wallets[code]
+
+    def get_total_value(
+        self,
+        base_currency: str = "USD",
+        rates: dict[str, float] | None = None,
+    ) -> float:
+        """Рассчитывает общую стоимость портфеля в выбранной валюте."""
+        import math
+
+        if not isinstance(base_currency, str):
+            raise TypeError("Базовая валюта должна быть строкой")
+
+        base = base_currency.strip().upper()
+
+        if not 2 <= len(base) <= 5 or not base.isascii() or not base.isalpha():
+            raise ValueError("Некорректный код базовой валюты")
+
+        if rates is None:
+            rates = {"USD_USD": 1.0}
+
+        if not isinstance(rates, dict):
+            raise TypeError("Курсы валют должны быть словарём")
+
+        def usd_rate(code: str) -> float:
+            if code == "USD":
+                return 1.0
+
+            pair = f"{code}_USD"
+
+            if pair not in rates:
+                raise ValueError(f"Отсутствует курс валютной пары {pair}")
+
+            rate = rates[pair]
+
+            if isinstance(rate, bool) or not isinstance(rate, (int, float)):
+                raise TypeError(f"Курс {pair} должен быть числом")
+
+            if not math.isfinite(rate) or rate <= 0:
+                raise ValueError(f"Курс {pair} должен быть положительным")
+
+            return float(rate)
+
+        total_usd = 0.0
+
+        for wallet in self._wallets.values():
+            if wallet.balance == 0:
+                continue
+
+            total_usd += wallet.balance * usd_rate(wallet.currency_code)
+
+        if not math.isfinite(total_usd):
+            raise ValueError("Стоимость портфеля превышает допустимый диапазон")
+
+        result = total_usd / usd_rate(base)
+
+        if not math.isfinite(result):
+            raise ValueError("Результат конвертации превышает допустимый диапазон")
+
+        return result
