@@ -213,3 +213,50 @@ class Wallet:
             "currency_code": self._currency_code,
             "balance": self._balance,
         }
+
+
+class Portfolio:
+    """Объединяет валютные кошельки одного пользователя."""
+
+    def __init__(self, user_id: int) -> None:
+        """Создаёт пустой портфель для указанного пользователя."""
+        if isinstance(user_id, bool) or not isinstance(user_id, int):
+            raise TypeError("Идентификатор пользователя должен быть целым числом")
+
+        if user_id <= 0:
+            raise ValueError("Идентификатор пользователя должен быть положительным")
+
+        self._user_id = user_id
+        self._wallets: dict[str, Wallet] = {}
+
+    @property
+    def user_id(self) -> int:
+        """Возвращает идентификатор владельца портфеля."""
+        return self._user_id
+
+    @property
+    def wallets(self) -> dict[str, Wallet]:
+        """Возвращает копию словаря валютных кошельков."""
+        return self._wallets.copy()
+
+    def add_currency(self, currency_code: str) -> Wallet:
+        """Добавляет валютный кошелёк или возвращает существующий."""
+        wallet = Wallet(currency_code)
+        code = wallet.currency_code
+
+        if code not in self._wallets:
+            self._wallets[code] = wallet
+
+        return self._wallets[code]
+
+    def get_wallet(self, currency_code: str) -> Wallet:
+        """Возвращает кошелёк указанной валюты."""
+        if not isinstance(currency_code, str):
+            raise TypeError("Код валюты должен быть строкой")
+
+        code = currency_code.strip().upper()
+
+        if code not in self._wallets:
+            raise ValueError(f"Валюта {code} отсутствует в портфеле")
+
+        return self._wallets[code]
