@@ -5,6 +5,15 @@ import hmac
 import secrets
 from datetime import datetime, timezone
 
+EXCHANGE_RATES: dict[str, float] = {
+    "USD_USD": 1.0,
+    "EUR_USD": 1.10,
+    "GBP_USD": 1.30,
+    "BTC_USD": 60_000.0,
+    "ETH_USD": 3_000.0,
+    "SOL_USD": 150.0,
+}
+
 
 class User:
     """Представляет зарегистрированного пользователя приложения."""
@@ -332,7 +341,7 @@ class Portfolio:
             raise ValueError("Некорректный код базовой валюты")
 
         if rates is None:
-            rates = {"USD_USD": 1.0}
+            rates = EXCHANGE_RATES
 
         if not isinstance(rates, dict):
             raise TypeError("Курсы валют должны быть словарём")
