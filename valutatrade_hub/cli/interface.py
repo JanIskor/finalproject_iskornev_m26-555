@@ -18,7 +18,14 @@ from valutatrade_hub.core.usecases import (
     register,
     sell,
     show_portfolio,
+    show_rates,
 )
+from valutatrade_hub.parser_service.api_clients import (
+    CoinGeckoClient,
+    ExchangeRateApiClient,
+)
+from valutatrade_hub.parser_service.logging import parser_console_logging
+from valutatrade_hub.parser_service.updater import RatesUpdater
 
 HELP_TEXT = """
 Доступные команды:
@@ -30,6 +37,8 @@ HELP_TEXT = """
   buy --currency CODE --amount NUMBER
   sell --currency CODE --amount NUMBER
   get-rate --from CODE --to CODE
+  update-rates [--source coingecko|exchangerate]
+  show-rates [--currency CODE] [--top N] [--base CODE]
   help
   exit
 
@@ -45,6 +54,8 @@ COMMAND_OPTIONS = {
     "buy": {"--currency", "--amount"},
     "sell": {"--currency", "--amount"},
     "get-rate": {"--from", "--to"},
+    "update-rates": {"--source"},
+    "show-rates": {"--currency", "--top", "--base"},
 }
 
 
@@ -266,6 +277,80 @@ def run() -> None:
                     print(f"Оценочная стоимость: {amount * rate:,.2f} USD")
                 continue
 
+            if command == "show-rates":
+                currency = options.get("--currency")
+                base = options.get("--base", "USD")
+                top_value = options.get("--top")
+
+                if top_value is not None:
+                    try:
+                        top = int(top_value)
+                    except ValueError as exc:
+                        raise ValueError(
+                            "'top' должен быть положительным целым числом"
+                        ) from exc
+                else:
+                    top = None
+
+                rows, last_refresh = show_rates(
+                    currency_code=currency,
+                    top=top,
+                    base_currency=base,
+                )
+
+                print(f"Курсы из кеша (обновлено: {last_refresh or '—'}):")
+
+                table = PrettyTable()
+                table.field_names = ["Пара", "Курс", "Обновлено", "Источник"]
+
+                for row in rows:
+                    table.add_row(
+                        [
+                            row["pair"],
+                            f"{row['rate']:.12g}",
+                            row["updated_at"],
+                            row["source"],
+                        ]
+                    )
+
+                print(table)
+                continue
+
+            if command == "update-rates":
+                source = options.get("--source", "all").lower()
+
+                source_clients = {
+                    "coingecko": CoinGeckoClient,
+                    "exchangerate": ExchangeRateApiClient,
+                }
+
+                if source != "all" and source not in source_clients:
+                    raise ValueError(
+                        "Неизвестный источник. Используйте coingecko или exchangerate"
+                    )
+
+                clients = (
+                    [CoinGeckoClient(), ExchangeRateApiClient()]
+                    if source == "all"
+                    else [source_clients[source]()]
+                )
+
+                with parser_console_logging():
+                    result = RatesUpdater(clients=clients).run_update()
+
+                if result.errors:
+                    print(
+                        "Обновление завершено с ошибками. "
+                        "Подробности в logs/parser.log."
+                    )
+                else:
+                    print("Обновление успешно завершено.")
+
+                print(f"Получено курсов: {result.fetched_count}")
+                print(f"Сохранено курсов: {result.saved_count}")
+                print(f"Последнее обновление: {result.last_refresh}")
+                continue
+
             if command == "get-rate":
                 source = _get_value(options, "--from", "Исходная валюта: ")
                 target = _get_value(options, "--to", "Целевая валюта: ")
@@ -281,3 +366,5 @@ def run() -> None:
             print(f"Ошибка: {exc}")
         except (EOFError, KeyboardInterrupt):
             print("\nОперация отменена.")
+        except Exception:
+            print("Ошибка: Внутренняя ошибка приложения. Повторите попытку позже.")

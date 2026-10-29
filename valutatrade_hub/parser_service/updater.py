@@ -66,14 +66,12 @@ class RatesUpdater:
                     source,
                     len(rates),
                 )
-            except Exception as exc:
-                message = (
-                    str(exc)
-                    if isinstance(exc, ApiRequestError)
-                    else f"{source}: ошибка получения курсов"
-                )
-                errors.append(message)
-                logger.exception("Ошибка обновления источника %s", source)
+            except ApiRequestError as exc:
+                errors.append(str(exc))
+                logger.error("Ошибка обновления источника %s: %s", source, exc)
+            except Exception:
+                errors.append(f"{source}: ошибка получения курсов")
+                logger.exception("Непредвиденная ошибка источника %s", source)
 
         if not successful:
             logger.error("Не удалось получить курсы ни от одного источника")
