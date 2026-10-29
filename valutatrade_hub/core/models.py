@@ -9,6 +9,7 @@ EXCHANGE_RATES: dict[str, float] = {
     "USD_USD": 1.0,
     "EUR_USD": 1.10,
     "GBP_USD": 1.30,
+    "RUB_USD": 0.01016,
     "BTC_USD": 60_000.0,
     "ETH_USD": 3_000.0,
     "SOL_USD": 150.0,
@@ -234,8 +235,9 @@ class Wallet:
 
         if amount > self._balance:
             raise InsufficientFundsError(
-                f"Недостаточно {self._currency_code}: "
-                f"доступно {self._balance}, требуется {amount}"
+                f"Недостаточно средств: "
+                f"доступно {self._balance} {self._currency_code}, "
+                f"требуется {amount} {self._currency_code}"
             )
 
         self.balance = self._balance - amount
