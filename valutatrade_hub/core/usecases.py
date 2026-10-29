@@ -166,30 +166,99 @@ def sell(
     raise ValueError(f"Портфель пользователя с ID {user_id} не найден")
 
 
-def _load_rates() -> dict[str, float]:
-    """Загружает сохранённые курсы валют из JSON-файла."""
-    import json
+def _load_rates(
+    required_currencies: tuple[str, ...] = (),
+) -> dict[str, float]:
+    """Загружает курсы, обновляя отсутствующие или устаревшие пары."""
+    from datetime import datetime, timezone
 
+    from valutatrade_hub.core.currencies import CryptoCurrency
+    from valutatrade_hub.core.exceptions import ApiRequestError
+    from valutatrade_hub.core.registry import get_currency
     from valutatrade_hub.infra.settings import SettingsLoader
+    from valutatrade_hub.parser_service.api_clients import (
+        CoinGeckoClient,
+        ExchangeRateApiClient,
+    )
+    from valutatrade_hub.parser_service.storage import RatesStorage, _parse_timestamp
+    from valutatrade_hub.parser_service.updater import RatesUpdater
 
-    rates_file = SettingsLoader().rates_file
+    settings = SettingsLoader()
+    storage = RatesStorage()
+    data = storage.load_rates()
+    now = datetime.now(timezone.utc)
 
-    try:
-        with rates_file.open("r", encoding="utf-8") as file:
-            data = json.load(file)
-    except (OSError, json.JSONDecodeError) as exc:
-        raise ValueError(f"Не удалось загрузить курсы валют: {exc}") from exc
+    required_pairs = {f"{code}_USD" for code in required_currencies if code != "USD"}
 
-    if not isinstance(data, dict) or not isinstance(data.get("pairs"), dict):
-        raise ValueError("Некорректная структура файла курсов валют")
+    stale_pairs = set()
+
+    for pair in required_pairs:
+        details = data["pairs"].get(pair)
+
+        if not isinstance(details, dict):
+            stale_pairs.add(pair)
+            continue
+
+        try:
+            timestamp = _parse_timestamp(details["updated_at"])
+            age = (now - timestamp).total_seconds()
+            if age < 0 or age > settings.rates_ttl_seconds:
+                stale_pairs.add(pair)
+        except (KeyError, TypeError, ValueError):
+            stale_pairs.add(pair)
+
+    if stale_pairs:
+        clients = []
+
+        for pair in sorted(stale_pairs):
+            code = pair.removesuffix("_USD")
+            currency = get_currency(code)
+
+            if isinstance(currency, CryptoCurrency):
+                if not any(isinstance(c, CoinGeckoClient) for c in clients):
+                    clients.append(CoinGeckoClient())
+            else:
+                if not any(isinstance(c, ExchangeRateApiClient) for c in clients):
+                    clients.append(ExchangeRateApiClient())
+
+        try:
+            RatesUpdater(clients=clients, storage=storage).run_update()
+        except ApiRequestError:
+            pass
+
+        data = storage.load_rates()
+
+        for pair in stale_pairs:
+            details = data["pairs"].get(pair)
+
+            if not isinstance(details, dict):
+                raise ApiRequestError(
+                    f"Не удалось получить актуальный курс {pair}",
+                    source="RatesUpdater",
+                )
+
+            try:
+                timestamp = _parse_timestamp(details["updated_at"])
+                age = (datetime.now(timezone.utc) - timestamp).total_seconds()
+            except (KeyError, TypeError, ValueError) as exc:
+                raise ApiRequestError(
+                    f"Некорректная временная метка курса {pair}",
+                    source="RatesUpdater",
+                ) from exc
+
+            if age < 0 or age > settings.rates_ttl_seconds:
+                raise ApiRequestError(
+                    f"Не удалось обновить устаревший курс {pair}",
+                    source="RatesUpdater",
+                )
 
     rates = {}
 
-    for pair, rate_data in data["pairs"].items():
-        if not isinstance(rate_data, dict) or "rate" not in rate_data:
+    for pair, details in data["pairs"].items():
+        if not isinstance(details, dict) or "rate" not in details:
             raise ValueError(f"Некорректные данные валютной пары {pair}")
 
-        rates[pair] = rate_data["rate"]
+        rates[pair] = details["rate"]
 
     return rates
 
@@ -213,7 +282,7 @@ def get_rate(
         return 1.0
 
     if rates is None:
-        rates = _load_rates()
+        rates = _load_rates((source, target))
 
     if not isinstance(rates, dict):
         raise TypeError("Курсы валют должны быть словарём")
