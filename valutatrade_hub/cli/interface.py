@@ -366,3 +366,5 @@ def run() -> None:
             print(f"Ошибка: {exc}")
         except (EOFError, KeyboardInterrupt):
             print("\nОперация отменена.")
+        except Exception:
+            print("Ошибка: Внутренняя ошибка приложения. Повторите попытку позже.")
