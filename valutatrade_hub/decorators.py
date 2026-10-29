@@ -75,7 +75,24 @@ def log_action(func=None, *, verbose: bool = False):
 
             logger.debug("action=%s %s stage=START", action, context)
 
-            result = operation(*args, **kwargs)
+            try:
+                result = operation(*args, **kwargs)
+            except Exception as exc:
+                error_type = type(exc).__name__
+
+                if error_type in SAFE_ERROR_TYPES:
+                    error_message = str(exc)
+                else:
+                    error_message = "Внутренняя ошибка приложения"
+
+                logger.error(
+                    "action=%s %s result=ERROR error_type=%s error_message=%r",
+                    action,
+                    context,
+                    error_type,
+                    error_message,
+                )
+                raise
 
             details = ""
 

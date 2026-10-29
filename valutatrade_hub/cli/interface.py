@@ -5,12 +5,12 @@ from getpass import getpass
 
 from prettytable import PrettyTable
 
+from valutatrade_hub.core.currencies import get_currency
 from valutatrade_hub.core.exceptions import (
     ApiRequestError,
     CurrencyNotFoundError,
     InsufficientFundsError,
 )
-from valutatrade_hub.core.registry import get_currency
 from valutatrade_hub.core.usecases import (
     buy,
     get_rate,
@@ -20,11 +20,13 @@ from valutatrade_hub.core.usecases import (
     show_portfolio,
     show_rates,
 )
+from valutatrade_hub.core.utils import convert_currency
+from valutatrade_hub.logging_config import parser_console_logging
 from valutatrade_hub.parser_service.api_clients import (
     CoinGeckoClient,
     ExchangeRateApiClient,
 )
-from valutatrade_hub.parser_service.logging import parser_console_logging
+from valutatrade_hub.parser_service.storage import RatesStorage, _parse_timestamp
 from valutatrade_hub.parser_service.updater import RatesUpdater
 
 HELP_TEXT = """
@@ -102,7 +104,7 @@ def _get_value(
 
 
 def _print_portfolio(user_id: int, username: str, base: str) -> None:
-    """Показывает кошельки и их стоимость в выбранной валюте."""
+    """Показывает кошельки и стоимость портфеля в выбранной валюте."""
     base_code = get_currency(base).code
     portfolio = show_portfolio(user_id)
 
@@ -112,6 +114,8 @@ def _print_portfolio(user_id: int, username: str, base: str) -> None:
         print("Ваш портфель пока пуст.")
         return
 
+    rates = _get_portfolio_rates(portfolio, base_code)
+
     table = PrettyTable()
     table.field_names = ["Валюта", "Баланс", f"Стоимость ({base_code})"]
 
@@ -119,8 +123,12 @@ def _print_portfolio(user_id: int, username: str, base: str) -> None:
         if wallet.balance == 0:
             value = 0.0
         else:
-            rate = get_rate(code, base_code)
-            value = wallet.balance * rate
+            value = convert_currency(
+                wallet.balance,
+                code,
+                base_code,
+                rates,
+            )
 
         table.add_row(
             [
@@ -132,34 +140,65 @@ def _print_portfolio(user_id: int, username: str, base: str) -> None:
 
     print(table)
 
-    try:
-        total = portfolio.get_total_value(
-            base_currency=base_code,
-            rates=_get_portfolio_rates(portfolio, base_code),
-        )
-    except (ValueError, TypeError) as exc:
-        raise ValueError(f"Не удалось оценить портфель: {exc}") from exc
+    total = portfolio.get_total_value(
+        base_currency=base_code,
+        rates=rates,
+    )
 
     print(f"ИТОГО: {total:,.2f} {base_code}")
 
 
 def _get_portfolio_rates(portfolio, base_code: str) -> dict[str, float]:
-    """Собирает курсы к USD для оценки портфеля."""
+    """Получает необходимые курсы к USD для оценки портфеля."""
     codes = {code for code, wallet in portfolio.wallets.items() if wallet.balance > 0}
     codes.add(base_code)
 
-    return {f"{code}_USD": get_rate(code, "USD") for code in codes if code != "USD"}
+    return {
+        f"{code}_USD": get_rate(code, "USD") for code in sorted(codes) if code != "USD"
+    }
+
+
+def _rate_updated_at(source: str, target: str) -> str | None:
+    """Возвращает время самого старого курса, участвующего в расчёте."""
+    if source == target:
+        return None
+
+    pairs = RatesStorage().load_rates()["pairs"]
+    timestamps = []
+
+    for code in (source, target):
+        if code == "USD":
+            continue
+
+        details = pairs.get(f"{code}_USD")
+
+        if not isinstance(details, dict):
+            return None
+
+        try:
+            timestamps.append(_parse_timestamp(details["updated_at"]))
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    if not timestamps:
+        return None
+
+    oldest = min(timestamps)
+    return oldest.strftime("%Y-%m-%d %H:%M:%S UTC")
 
 
 def _print_rate(source: str, target: str) -> None:
-    """Выводит прямой и обратный курсы без промежуточного округления."""
+    """Выводит прямой и обратный курсы с временем обновления."""
     source_code = get_currency(source).code
     target_code = get_currency(target).code
 
     rate = get_rate(source_code, target_code)
     reverse = 1 / rate
+    updated_at = _rate_updated_at(source_code, target_code)
 
-    print(f"Курс {source_code}→{target_code}: {rate:.12g}")
+    timestamp = f" (обновлено: {updated_at})" if updated_at else ""
+
+    print(f"Курс {source_code}→{target_code}: {rate:.12g}{timestamp}")
     print(f"Обратный курс {target_code}→{source_code}: {reverse:.12g}")
 
 
@@ -274,7 +313,12 @@ def run() -> None:
                         "Оценочная стоимость в USD недоступна: нет актуального курса."
                     )
                 else:
-                    print(f"Оценочная стоимость: {amount * rate:,.2f} USD")
+                    description = (
+                        "Оценочная стоимость покупки"
+                        if command == "buy"
+                        else "Оценочная выручка"
+                    )
+                    print(f"{description}: {amount * rate:,.2f} USD")
                 continue
 
             if command == "show-rates":

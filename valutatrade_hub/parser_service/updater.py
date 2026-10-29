@@ -5,11 +5,11 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from valutatrade_hub.core.exceptions import ApiRequestError
+from valutatrade_hub.logging_config import setup_parser_logging
 from valutatrade_hub.parser_service.api_clients import (
     CoinGeckoClient,
     ExchangeRateApiClient,
 )
-from valutatrade_hub.parser_service.logging import setup_parser_logging
 from valutatrade_hub.parser_service.storage import RatesStorage
 
 logger = logging.getLogger("valutatrade_hub.parser")

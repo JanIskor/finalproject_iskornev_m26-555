@@ -5,6 +5,8 @@ import hmac
 import secrets
 from datetime import datetime, timezone
 
+from valutatrade_hub.core.utils import convert_currency
+
 EXCHANGE_RATES: dict[str, float] = {
     "USD_USD": 1.0,
     "EUR_USD": 1.10,
@@ -348,42 +350,23 @@ class Portfolio:
         if not isinstance(rates, dict):
             raise TypeError("Курсы валют должны быть словарём")
 
-        def usd_rate(code: str) -> float:
-            if code == "USD":
-                return 1.0
-
-            pair = f"{code}_USD"
-
-            if pair not in rates:
-                raise ValueError(f"Отсутствует курс валютной пары {pair}")
-
-            rate = rates[pair]
-
-            if isinstance(rate, bool) or not isinstance(rate, (int, float)):
-                raise TypeError(f"Курс {pair} должен быть числом")
-
-            if not math.isfinite(rate) or rate <= 0:
-                raise ValueError(f"Курс {pair} должен быть положительным")
-
-            return float(rate)
-
-        total_usd = 0.0
+        total = 0.0
 
         for wallet in self._wallets.values():
             if wallet.balance == 0:
                 continue
 
-            total_usd += wallet.balance * usd_rate(wallet.currency_code)
+            total += convert_currency(
+                wallet.balance,
+                wallet.currency_code,
+                base,
+                rates,
+            )
 
-        if not math.isfinite(total_usd):
+        if not math.isfinite(total):
             raise ValueError("Стоимость портфеля превышает допустимый диапазон")
 
-        result = total_usd / usd_rate(base)
-
-        if not math.isfinite(result):
-            raise ValueError("Результат конвертации превышает допустимый диапазон")
-
-        return result
+        return total
 
     def to_dict(self) -> dict:
         """Преобразует портфель в словарь для сохранения."""

@@ -1,11 +1,11 @@
 """Бизнес-операции приложения ValutaTrade Hub."""
 
 from valutatrade_hub.core.models import Portfolio, User
-from valutatrade_hub.decorators import log_action, log_errors
+from valutatrade_hub.core.utils import convert_currency
+from valutatrade_hub.decorators import log_action
 from valutatrade_hub.infra.database import DatabaseManager
 
 
-@log_errors
 @log_action
 def register(
     username: str,
@@ -56,7 +56,6 @@ def register(
     return user
 
 
-@log_errors
 @log_action
 def login(
     username: str,
@@ -86,7 +85,6 @@ def login(
     raise ValueError(error_message)
 
 
-@log_errors
 @log_action
 def show_portfolio(
     user_id: int,
@@ -103,12 +101,20 @@ def show_portfolio(
 
     for portfolio_data in database.load_portfolios():
         if portfolio_data["user_id"] == user_id:
-            return Portfolio.from_dict(portfolio_data)
+            user_data = next(
+                (item for item in database.load_users() if item["user_id"] == user_id),
+                None,
+            )
+
+            if user_data is None:
+                raise ValueError(f"Пользователь с ID {user_id} не найден")
+
+            user = User.from_dict(user_data)
+            return Portfolio.from_dict(portfolio_data, user=user)
 
     raise ValueError(f"Портфель пользователя с ID {user_id} не найден")
 
 
-@log_errors
 @log_action(verbose=True)
 def buy(
     user_id: int,
@@ -117,7 +123,7 @@ def buy(
     db: DatabaseManager | None = None,
 ) -> Portfolio:
     """Покупает валюту, увеличивая баланс кошелька пользователя."""
-    from valutatrade_hub.core.registry import get_currency
+    from valutatrade_hub.core.currencies import get_currency
 
     currency = get_currency(currency_code)
     database = db if db is not None else DatabaseManager()
@@ -137,7 +143,6 @@ def buy(
     raise ValueError(f"Портфель пользователя с ID {user_id} не найден")
 
 
-@log_errors
 @log_action(verbose=True)
 def sell(
     user_id: int,
@@ -146,7 +151,7 @@ def sell(
     db: DatabaseManager | None = None,
 ) -> Portfolio:
     """Продаёт валюту, уменьшая баланс кошелька пользователя."""
-    from valutatrade_hub.core.registry import get_currency
+    from valutatrade_hub.core.currencies import get_currency
 
     currency = get_currency(currency_code)
     database = db if db is not None else DatabaseManager()
@@ -172,9 +177,8 @@ def _load_rates(
     """Загружает курсы, обновляя отсутствующие или устаревшие пары."""
     from datetime import datetime, timezone
 
-    from valutatrade_hub.core.currencies import CryptoCurrency
+    from valutatrade_hub.core.currencies import CryptoCurrency, get_currency
     from valutatrade_hub.core.exceptions import ApiRequestError
-    from valutatrade_hub.core.registry import get_currency
     from valutatrade_hub.infra.settings import SettingsLoader
     from valutatrade_hub.parser_service.api_clients import (
         CoinGeckoClient,
@@ -263,7 +267,6 @@ def _load_rates(
     return rates
 
 
-@log_errors
 @log_action
 def get_rate(
     from_currency: str,
@@ -271,9 +274,8 @@ def get_rate(
     rates: dict[str, float] | None = None,
 ) -> float:
     """Рассчитывает валютный курс через котировки относительно USD."""
-    import math
 
-    from valutatrade_hub.core.registry import get_currency
+    from valutatrade_hub.core.currencies import get_currency
 
     source = get_currency(from_currency).code
     target = get_currency(to_currency).code
@@ -287,31 +289,9 @@ def get_rate(
     if not isinstance(rates, dict):
         raise TypeError("Курсы валют должны быть словарём")
 
-    def usd_rate(code: str) -> float:
-        if code == "USD":
-            return 1.0
+    result = convert_currency(1.0, source, target, rates)
 
-        pair = f"{code}_USD"
-
-        if pair not in rates:
-            raise ValueError(f"Отсутствует курс валютной пары {pair}")
-
-        rate = rates[pair]
-
-        if isinstance(rate, bool) or not isinstance(rate, (int, float)):
-            raise TypeError(f"Некорректный тип курса {pair}")
-
-        if not math.isfinite(rate) or rate <= 0:
-            raise ValueError(f"Курс {pair} должен быть положительным и конечным")
-
-        return float(rate)
-
-    source_rate = usd_rate(source)
-    target_rate = usd_rate(target)
-
-    result = source_rate / target_rate
-
-    if not math.isfinite(result) or result <= 0:
+    if result <= 0:
         raise ValueError("Не удалось рассчитать корректный валютный курс")
 
     return result
@@ -326,8 +306,7 @@ def show_rates(
     import json
     import math
 
-    from valutatrade_hub.core.currencies import CryptoCurrency
-    from valutatrade_hub.core.registry import get_currency
+    from valutatrade_hub.core.currencies import CryptoCurrency, get_currency
     from valutatrade_hub.infra.settings import SettingsLoader
 
     base = get_currency(base_currency).code
