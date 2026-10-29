@@ -153,3 +153,83 @@ def sell(
             return portfolio
 
     raise ValueError(f"Портфель пользователя с ID {user_id} не найден")
+
+
+def _load_rates() -> dict[str, float]:
+    """Загружает сохранённые курсы валют из JSON-файла."""
+    import json
+
+    from valutatrade_hub.infra.settings import SettingsLoader
+
+    rates_file = SettingsLoader().rates_file
+
+    try:
+        with rates_file.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Не удалось загрузить курсы валют: {exc}") from exc
+
+    if not isinstance(data, dict) or not isinstance(data.get("pairs"), dict):
+        raise ValueError("Некорректная структура файла курсов валют")
+
+    rates = {}
+
+    for pair, rate_data in data["pairs"].items():
+        if not isinstance(rate_data, dict) or "rate" not in rate_data:
+            raise ValueError(f"Некорректные данные валютной пары {pair}")
+
+        rates[pair] = rate_data["rate"]
+
+    return rates
+
+
+def get_rate(
+    from_currency: str,
+    to_currency: str,
+    rates: dict[str, float] | None = None,
+) -> float:
+    """Рассчитывает валютный курс через котировки относительно USD."""
+    import math
+
+    from valutatrade_hub.core.registry import get_currency
+
+    source = get_currency(from_currency).code
+    target = get_currency(to_currency).code
+
+    if source == target:
+        return 1.0
+
+    if rates is None:
+        rates = _load_rates()
+
+    if not isinstance(rates, dict):
+        raise TypeError("Курсы валют должны быть словарём")
+
+    def usd_rate(code: str) -> float:
+        if code == "USD":
+            return 1.0
+
+        pair = f"{code}_USD"
+
+        if pair not in rates:
+            raise ValueError(f"Отсутствует курс валютной пары {pair}")
+
+        rate = rates[pair]
+
+        if isinstance(rate, bool) or not isinstance(rate, (int, float)):
+            raise TypeError(f"Некорректный тип курса {pair}")
+
+        if not math.isfinite(rate) or rate <= 0:
+            raise ValueError(f"Курс {pair} должен быть положительным и конечным")
+
+        return float(rate)
+
+    source_rate = usd_rate(source)
+    target_rate = usd_rate(target)
+
+    result = source_rate / target_rate
+
+    if not math.isfinite(result) or result <= 0:
+        raise ValueError("Не удалось рассчитать корректный валютный курс")
+
+    return result
