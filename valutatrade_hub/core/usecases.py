@@ -51,3 +51,31 @@ def register(
         raise
 
     return user
+
+
+def login(
+    username: str,
+    password: str,
+    db: DatabaseManager | None = None,
+) -> User:
+    """Авторизует пользователя по имени и паролю."""
+    error_message = "Неверное имя пользователя или пароль"
+
+    if not isinstance(username, str) or not isinstance(password, str):
+        raise ValueError(error_message)
+
+    normalized_username = username.strip().casefold()
+    database = db if db is not None else DatabaseManager()
+
+    for user_data in database.load_users():
+        if user_data["username"].casefold() != normalized_username:
+            continue
+
+        user = User.from_dict(user_data)
+
+        if user.verify_password(password):
+            return user
+
+        break
+
+    raise ValueError(error_message)
