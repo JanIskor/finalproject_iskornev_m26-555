@@ -99,3 +99,30 @@ def show_portfolio(
             return Portfolio.from_dict(portfolio_data)
 
     raise ValueError(f"Портфель пользователя с ID {user_id} не найден")
+
+
+def buy(
+    user_id: int,
+    currency_code: str,
+    amount: float,
+    db: DatabaseManager | None = None,
+) -> Portfolio:
+    """Покупает валюту, увеличивая баланс кошелька пользователя."""
+    from valutatrade_hub.core.registry import get_currency
+
+    currency = get_currency(currency_code)
+    database = db if db is not None else DatabaseManager()
+
+    portfolio = show_portfolio(user_id, db=database)
+    wallet = portfolio.add_currency(currency.code)
+    wallet.deposit(amount)
+
+    portfolios_data = database.load_portfolios()
+
+    for index, portfolio_data in enumerate(portfolios_data):
+        if portfolio_data["user_id"] == user_id:
+            portfolios_data[index] = portfolio.to_dict()
+            database.save_portfolios(portfolios_data)
+            return portfolio
+
+    raise ValueError(f"Портфель пользователя с ID {user_id} не найден")
