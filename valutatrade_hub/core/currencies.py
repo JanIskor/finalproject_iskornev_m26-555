@@ -34,8 +34,12 @@ class Currency(ABC):
         return self._name
 
     @abstractmethod
+    def get_display_info(self) -> str:
+        """Возвращает строковое представление валюты для интерфейса."""
+
+    @abstractmethod
     def get_info(self) -> dict:
-        """Вернуть информацию о валюте."""
+        """Возвращает структурированную информацию о валюте."""
 
 
 class FiatCurrency(Currency):
@@ -56,7 +60,17 @@ class FiatCurrency(Currency):
 
     @property
     def country(self) -> str:
+        """Возвращает страну или зону эмиссии."""
         return self._country
+
+    @property
+    def issuing_country(self) -> str:
+        """Возвращает страну или зону эмиссии."""
+        return self._country
+
+    def get_display_info(self) -> str:
+        """Возвращает описание фиатной валюты."""
+        return f"[FIAT] {self.code} — {self.name} (Issuing: {self.issuing_country})"
 
     def get_info(self) -> dict:
         return {
@@ -105,6 +119,13 @@ class CryptoCurrency(Currency):
     @property
     def market_cap(self) -> float:
         return self._market_cap
+
+    def get_display_info(self) -> str:
+        """Возвращает описание криптовалюты."""
+        return (
+            f"[CRYPTO] {self.code} — {self.name} "
+            f"(Algo: {self.algorithm}, MCAP: {self.market_cap:.2e})"
+        )
 
     def get_info(self) -> dict:
         return {

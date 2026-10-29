@@ -5,6 +5,7 @@ CURRENCY_REGISTRY: dict[str, Currency] = {
     "USD": FiatCurrency("USD", "US Dollar", "United States"),
     "EUR": FiatCurrency("EUR", "Euro", "Eurozone"),
     "GBP": FiatCurrency("GBP", "British Pound", "United Kingdom"),
+    "RUB": FiatCurrency("RUB", "Russian Ruble", "Russia"),
     "BTC": CryptoCurrency("BTC", "Bitcoin", "SHA-256", 1_200_000_000_000),
     "ETH": CryptoCurrency("ETH", "Ethereum", "Proof of Stake", 400_000_000_000),
     "SOL": CryptoCurrency("SOL", "Solana", "Proof of Stake", 70_000_000_000),
