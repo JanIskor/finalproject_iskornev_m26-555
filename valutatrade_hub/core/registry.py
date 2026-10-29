@@ -1,7 +1,6 @@
 from valutatrade_hub.core.currencies import CryptoCurrency, Currency, FiatCurrency
 from valutatrade_hub.core.exceptions import CurrencyNotFoundError
 
-
 CURRENCY_REGISTRY: dict[str, Currency] = {
     "USD": FiatCurrency("USD", "US Dollar", "United States"),
     "EUR": FiatCurrency("EUR", "Euro", "Eurozone"),
