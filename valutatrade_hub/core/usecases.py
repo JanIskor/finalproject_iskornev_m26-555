@@ -246,3 +246,116 @@ def get_rate(
         raise ValueError("Не удалось рассчитать корректный валютный курс")
 
     return result
+
+
+def show_rates(
+    currency_code: str | None = None,
+    top: int | None = None,
+    base_currency: str = "USD",
+) -> tuple[list[dict[str, object]], str | None]:
+    """Возвращает курсы из кеша с фильтрацией и пересчётом базовой валюты."""
+    import json
+    import math
+
+    from valutatrade_hub.core.currencies import CryptoCurrency
+    from valutatrade_hub.core.registry import get_currency
+    from valutatrade_hub.infra.settings import SettingsLoader
+
+    base = get_currency(base_currency).code
+
+    if currency_code is not None:
+        currency_code = get_currency(currency_code).code
+
+    if top is not None:
+        if isinstance(top, bool) or not isinstance(top, int) or top <= 0:
+            raise ValueError("'top' должен быть положительным целым числом")
+
+    rates_file = SettingsLoader().rates_file
+
+    try:
+        with rates_file.open("r", encoding="utf-8") as file:
+            data = json.load(file)
+    except FileNotFoundError:
+        data = {}
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValueError(f"Не удалось прочитать кеш курсов: {exc}") from exc
+
+    if not isinstance(data, dict):
+        raise ValueError("Некорректный формат кеша курсов")
+
+    pairs = data.get("pairs", {})
+
+    if not isinstance(pairs, dict):
+        raise ValueError("Некорректный формат валютных пар в кеше")
+
+    if not pairs:
+        raise ValueError(
+            "Локальный кеш курсов пуст. Выполните 'update-rates', "
+            "чтобы загрузить данные."
+        )
+
+    rates = {}
+
+    for pair, details in pairs.items():
+        if not isinstance(details, dict):
+            raise ValueError(f"Некорректные данные для пары {pair}")
+
+        value = details.get("rate")
+
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not math.isfinite(value)
+            or value <= 0
+        ):
+            raise ValueError(f"Некорректный курс валютной пары {pair}")
+
+        rates[pair] = float(value)
+
+    if base != "USD" and f"{base}_USD" not in rates:
+        raise ValueError(f"В кеше отсутствует курс {base}_USD")
+
+    base_rate = get_rate(base, "USD", rates=rates)
+
+    rows = []
+
+    for pair, details in pairs.items():
+        if not pair.endswith("_USD"):
+            continue
+
+        code = pair.removesuffix("_USD")
+
+        try:
+            currency = get_currency(code)
+        except Exception:
+            continue
+
+        if currency_code is not None and code != currency_code:
+            continue
+
+        if top is not None and not isinstance(currency, CryptoCurrency):
+            continue
+
+        rows.append(
+            {
+                "pair": f"{code}_{base}",
+                "rate": rates[pair] / base_rate,
+                "updated_at": details.get("updated_at", "—"),
+                "source": details.get("source", "—"),
+                "usd_rate": rates[pair],
+            }
+        )
+
+    if currency_code is not None and not rows:
+        raise ValueError(f"Курс для '{currency_code}' не найден в кеше")
+
+    if top is not None:
+        rows.sort(key=lambda row: row["usd_rate"], reverse=True)
+        rows = rows[:top]
+    else:
+        rows.sort(key=lambda row: row["pair"])
+
+    for row in rows:
+        del row["usd_rate"]
+
+    return rows, data.get("last_refresh")

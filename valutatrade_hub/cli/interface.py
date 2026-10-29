@@ -18,6 +18,7 @@ from valutatrade_hub.core.usecases import (
     register,
     sell,
     show_portfolio,
+    show_rates,
 )
 from valutatrade_hub.parser_service.api_clients import (
     CoinGeckoClient,
@@ -37,6 +38,7 @@ HELP_TEXT = """
   sell --currency CODE --amount NUMBER
   get-rate --from CODE --to CODE
   update-rates [--source coingecko|exchangerate]
+  show-rates [--currency CODE] [--top N] [--base CODE]
   help
   exit
 
@@ -53,6 +55,7 @@ COMMAND_OPTIONS = {
     "sell": {"--currency", "--amount"},
     "get-rate": {"--from", "--to"},
     "update-rates": {"--source"},
+    "show-rates": {"--currency", "--top", "--base"},
 }
 
 
@@ -272,6 +275,45 @@ def run() -> None:
                     )
                 else:
                     print(f"Оценочная стоимость: {amount * rate:,.2f} USD")
+                continue
+
+            if command == "show-rates":
+                currency = options.get("--currency")
+                base = options.get("--base", "USD")
+                top_value = options.get("--top")
+
+                if top_value is not None:
+                    try:
+                        top = int(top_value)
+                    except ValueError as exc:
+                        raise ValueError(
+                            "'top' должен быть положительным целым числом"
+                        ) from exc
+                else:
+                    top = None
+
+                rows, last_refresh = show_rates(
+                    currency_code=currency,
+                    top=top,
+                    base_currency=base,
+                )
+
+                print(f"Курсы из кеша (обновлено: {last_refresh or '—'}):")
+
+                table = PrettyTable()
+                table.field_names = ["Пара", "Курс", "Обновлено", "Источник"]
+
+                for row in rows:
+                    table.add_row(
+                        [
+                            row["pair"],
+                            f"{row['rate']:.12g}",
+                            row["updated_at"],
+                            row["source"],
+                        ]
+                    )
+
+                print(table)
                 continue
 
             if command == "update-rates":
