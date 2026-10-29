@@ -79,3 +79,23 @@ def login(
         break
 
     raise ValueError(error_message)
+
+
+def show_portfolio(
+    user_id: int,
+    db: DatabaseManager | None = None,
+) -> Portfolio:
+    """Загружает валютный портфель указанного пользователя."""
+    if isinstance(user_id, bool) or not isinstance(user_id, int):
+        raise TypeError("Идентификатор пользователя должен быть целым числом")
+
+    if user_id <= 0:
+        raise ValueError("Идентификатор пользователя должен быть положительным")
+
+    database = db if db is not None else DatabaseManager()
+
+    for portfolio_data in database.load_portfolios():
+        if portfolio_data["user_id"] == user_id:
+            return Portfolio.from_dict(portfolio_data)
+
+    raise ValueError(f"Портфель пользователя с ID {user_id} не найден")
