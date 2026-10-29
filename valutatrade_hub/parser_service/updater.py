@@ -9,6 +9,7 @@ from valutatrade_hub.parser_service.api_clients import (
     CoinGeckoClient,
     ExchangeRateApiClient,
 )
+from valutatrade_hub.parser_service.logging import setup_parser_logging
 from valutatrade_hub.parser_service.storage import RatesStorage
 
 logger = logging.getLogger("valutatrade_hub.parser")
@@ -32,6 +33,7 @@ class RatesUpdater:
         clients: list | None = None,
         storage: RatesStorage | None = None,
     ) -> None:
+        setup_parser_logging()
         self.clients = (
             clients
             if clients is not None
