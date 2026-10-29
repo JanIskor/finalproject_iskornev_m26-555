@@ -236,7 +236,7 @@ class Wallet:
         if amount > self._balance:
             raise InsufficientFundsError(
                 f"Недостаточно средств: "
-                f"доступно {self._balance} {self._currency_code}, "
+                f"доступно {self._balance:.12g} {self._currency_code}, "
                 f"требуется {amount} {self._currency_code}"
             )
 

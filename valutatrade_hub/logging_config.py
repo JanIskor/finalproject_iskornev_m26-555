@@ -1,6 +1,7 @@
 """Настройка файлового логирования ValutaTrade Hub."""
 
 import logging
+from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
@@ -10,6 +11,17 @@ LOGGER_NAME = "valutatrade_hub"
 LOG_FILENAME = "valutatrade.log"
 MAX_LOG_SIZE = 1_048_576
 BACKUP_COUNT = 3
+
+
+class ISO8601Formatter(logging.Formatter):
+    """Форматирует время логирования в ISO 8601 с часовым поясом UTC."""
+
+    def formatTime(self, record, datefmt=None):
+        """Возвращает временную метку записи в UTC."""
+        return datetime.fromtimestamp(
+            record.created,
+            tz=timezone.utc,
+        ).isoformat(timespec="milliseconds")
 
 
 def setup_logging() -> logging.Logger:
@@ -34,7 +46,7 @@ def setup_logging() -> logging.Logger:
             and Path(handler.baseFilename).resolve() == log_file.resolve()
         ):
             handler.setLevel(log_level)
-            handler.setFormatter(logging.Formatter(settings.log_format))
+            handler.setFormatter(ISO8601Formatter(settings.log_format))
             return logger
 
     file_handler = RotatingFileHandler(
@@ -44,7 +56,7 @@ def setup_logging() -> logging.Logger:
         encoding="utf-8",
     )
     file_handler.setLevel(log_level)
-    file_handler.setFormatter(logging.Formatter(settings.log_format))
+    file_handler.setFormatter(ISO8601Formatter(settings.log_format))
 
     logger.addHandler(file_handler)
 

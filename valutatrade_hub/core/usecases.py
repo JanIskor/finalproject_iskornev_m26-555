@@ -1,8 +1,8 @@
 """Бизнес-операции приложения ValutaTrade Hub."""
 
 from valutatrade_hub.core.models import Portfolio, User
+from valutatrade_hub.decorators import log_action, log_errors
 from valutatrade_hub.infra.database import DatabaseManager
-from valutatrade_hub.infra.logging_decorators import log_action, log_errors
 
 
 @log_errors
@@ -109,7 +109,7 @@ def show_portfolio(
 
 
 @log_errors
-@log_action
+@log_action(verbose=True)
 def buy(
     user_id: int,
     currency_code: str,
@@ -138,7 +138,7 @@ def buy(
 
 
 @log_errors
-@log_action
+@log_action(verbose=True)
 def sell(
     user_id: int,
     currency_code: str,
