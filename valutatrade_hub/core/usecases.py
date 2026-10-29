@@ -1,9 +1,12 @@
 """Бизнес-операции приложения ValutaTrade Hub."""
 
 from valutatrade_hub.core.models import Portfolio, User
+from valutatrade_hub.decorators import log_action, log_errors
 from valutatrade_hub.infra.database import DatabaseManager
 
 
+@log_errors
+@log_action
 def register(
     username: str,
     password: str,
@@ -53,6 +56,8 @@ def register(
     return user
 
 
+@log_errors
+@log_action
 def login(
     username: str,
     password: str,
@@ -81,6 +86,8 @@ def login(
     raise ValueError(error_message)
 
 
+@log_errors
+@log_action
 def show_portfolio(
     user_id: int,
     db: DatabaseManager | None = None,
@@ -101,6 +108,8 @@ def show_portfolio(
     raise ValueError(f"Портфель пользователя с ID {user_id} не найден")
 
 
+@log_errors
+@log_action(verbose=True)
 def buy(
     user_id: int,
     currency_code: str,
@@ -128,6 +137,8 @@ def buy(
     raise ValueError(f"Портфель пользователя с ID {user_id} не найден")
 
 
+@log_errors
+@log_action(verbose=True)
 def sell(
     user_id: int,
     currency_code: str,
@@ -183,6 +194,8 @@ def _load_rates() -> dict[str, float]:
     return rates
 
 
+@log_errors
+@log_action
 def get_rate(
     from_currency: str,
     to_currency: str,

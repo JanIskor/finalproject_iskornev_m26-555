@@ -1,10 +1,12 @@
 """Точка входа в приложение ValutaTrade Hub."""
 
 from valutatrade_hub.cli.interface import run
+from valutatrade_hub.logging_config import setup_logging
 
 
 def main():
-    """Запускает консольный интерфейс приложения."""
+    """Настраивает логирование и запускает консольный интерфейс."""
+    setup_logging()
     run()
 
 

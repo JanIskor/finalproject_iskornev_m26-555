@@ -29,7 +29,7 @@ class SettingsLoader:
 
         self._base_currency = "USD"
         self._rates_ttl_seconds = 300
-        self._log_level = "DEBUG"
+        self._log_level = "INFO"
         self._log_format = "%(asctime)s | %(levelname)s | %(name)s | %(message)s"
 
         self._initialized = True
