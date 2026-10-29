@@ -19,6 +19,12 @@ from valutatrade_hub.core.usecases import (
     sell,
     show_portfolio,
 )
+from valutatrade_hub.parser_service.api_clients import (
+    CoinGeckoClient,
+    ExchangeRateApiClient,
+)
+from valutatrade_hub.parser_service.logging import parser_console_logging
+from valutatrade_hub.parser_service.updater import RatesUpdater
 
 HELP_TEXT = """
 Доступные команды:
@@ -30,6 +36,7 @@ HELP_TEXT = """
   buy --currency CODE --amount NUMBER
   sell --currency CODE --amount NUMBER
   get-rate --from CODE --to CODE
+  update-rates [--source coingecko|exchangerate]
   help
   exit
 
@@ -45,6 +52,7 @@ COMMAND_OPTIONS = {
     "buy": {"--currency", "--amount"},
     "sell": {"--currency", "--amount"},
     "get-rate": {"--from", "--to"},
+    "update-rates": {"--source"},
 }
 
 
@@ -264,6 +272,41 @@ def run() -> None:
                     )
                 else:
                     print(f"Оценочная стоимость: {amount * rate:,.2f} USD")
+                continue
+
+            if command == "update-rates":
+                source = options.get("--source", "all").lower()
+
+                source_clients = {
+                    "coingecko": CoinGeckoClient,
+                    "exchangerate": ExchangeRateApiClient,
+                }
+
+                if source != "all" and source not in source_clients:
+                    raise ValueError(
+                        "Неизвестный источник. Используйте coingecko или exchangerate"
+                    )
+
+                clients = (
+                    [CoinGeckoClient(), ExchangeRateApiClient()]
+                    if source == "all"
+                    else [source_clients[source]()]
+                )
+
+                with parser_console_logging():
+                    result = RatesUpdater(clients=clients).run_update()
+
+                if result.errors:
+                    print(
+                        "Обновление завершено с ошибками. "
+                        "Подробности в logs/parser.log."
+                    )
+                else:
+                    print("Обновление успешно завершено.")
+
+                print(f"Получено курсов: {result.fetched_count}")
+                print(f"Сохранено курсов: {result.saved_count}")
+                print(f"Последнее обновление: {result.last_refresh}")
                 continue
 
             if command == "get-rate":

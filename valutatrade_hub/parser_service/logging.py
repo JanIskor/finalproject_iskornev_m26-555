@@ -1,6 +1,8 @@
 """Настройка отдельного файлового логирования парсера."""
 
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from logging.handlers import RotatingFileHandler
 
@@ -44,3 +46,20 @@ def setup_parser_logging() -> logging.Logger:
 
     logger.addHandler(handler)
     return logger
+
+
+@contextmanager
+def parser_console_logging() -> Iterator[None]:
+    """Временно выводит INFO-логи парсера в консоль."""
+    logger = setup_parser_logging()
+    handler = logging.StreamHandler()
+    handler.setLevel(logging.INFO)
+    handler.setFormatter(logging.Formatter("%(levelname)s: %(message)s"))
+
+    logger.addHandler(handler)
+
+    try:
+        yield
+    finally:
+        logger.removeHandler(handler)
+        handler.close()
