@@ -10,6 +10,7 @@ from valutatrade_hub.core.exceptions import (
 )
 from valutatrade_hub.core.usecases import (
     buy,
+    get_rate,
     login,
     register,
     sell,
@@ -48,7 +49,7 @@ def run() -> None:
                 "  show-portfolio  Просмотр портфеля\n"
                 "  buy             Покупка валюты\n"
                 "  sell            Продажа валюты\n"
-                "  get-rate        Получение курса (скоро)\n"
+                "  get-rate        Получение валютного курса\n"
                 "  help            Список команд\n"
                 "  exit            Завершение работы"
             )
@@ -146,6 +147,22 @@ def run() -> None:
                 print(f"Ошибка: {exc}")
             except (EOFError, KeyboardInterrupt):
                 print("\\nОперация отменена.")
+
+            continue
+
+        if command == "get-rate":
+            try:
+                source = input("Исходная валюта: ").strip()
+                target = input("Целевая валюта: ").strip()
+
+                rate = get_rate(source, target)
+
+                print(f"1 {source.upper()} = {rate:.12g} {target.upper()}")
+
+            except (ValueError, TypeError) as exc:
+                print(f"Ошибка: {exc}")
+            except (EOFError, KeyboardInterrupt):
+                print("\nОперация отменена.")
 
             continue
 
